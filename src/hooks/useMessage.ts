@@ -7,7 +7,12 @@ const useMessage = (toast: { success: (message: string) => void }) => {
   const timespampRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!message || timespampRef.current === message?.timestamp) {
+    if (!message || timespampRef.current === message.timestamp) {
+      return;
+    }
+
+    if (timespampRef.current === null) {
+      timespampRef.current = message.timestamp;
       return;
     }
 
