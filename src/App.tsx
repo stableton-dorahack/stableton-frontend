@@ -1,54 +1,76 @@
-import "./App.css";
-import { TonConnectButton } from "@tonconnect/ui-react";
-import { Counter } from "./components/Counter";
-import { Jetton } from "./components/Jetton";
-import { TransferTon } from "./components/TransferTon";
-import styled from "styled-components";
-import { Button, FlexBoxCol, FlexBoxRow } from "./components/styled/styled";
-import { useTonConnect } from "./hooks/useTonConnect";
-import { CHAIN } from "@tonconnect/protocol";
-import "@twa-dev/sdk";
+import { useEffect, useState } from 'react';
+import { useTonAddress } from '@tonconnect/ui-react';
+import toast, { Toaster } from 'react-hot-toast';
+import useUserPosition from './hooks/useUserPosition';
+import useGateKeeper from './hooks/useGateKeeper';
+import useBalance from './hooks/useBalance';
+import { formatAddress } from './utils';
+import useMessage from './hooks/useMessage';
+import { Home, Connect, Collateral, Stable } from './components/pages';
 
-const StyledApp = styled.div`
-  background-color: #e8e8e8;
-  color: black;
-
-  @media (prefers-color-scheme: dark) {
-    background-color: #222;
-    color: white;
-  }
-  min-height: 100vh;
-  padding: 20px 20px;
-`;
-
-const AppContainer = styled.div`
-  max-width: 900px;
-  margin: 0 auto;
-`;
+type Page = 'connect' | 'home' | 'collateral' | 'stable';
 
 function App() {
-  const { network } = useTonConnect();
+  const [page, setPage] = useState<Page>('connect');
+  const address = useTonAddress();
+  const balance = useBalance();
+  const { userPositionState } = useUserPosition();
+  const { debtRate, tonPrice } = useGateKeeper();
+  const [tonDeposited, setTonDeposited] = useState<number>(0);
+  const [stablesBorrowed, setStablesBorrowed] = useState<number>(0);
+  const collateralVolume = tonDeposited * tonPrice;
+  const healthFactor = collateralVolume / (stablesBorrowed * 1.5);
+  useMessage(toast);
+
+  useEffect(() => {
+    if (!userPositionState) return;
+    setTonDeposited(userPositionState.collateral);
+    setStablesBorrowed(userPositionState.debt * debtRate.debtAccumulatedRate);
+  }, [userPositionState, debtRate]);
+
+  if (page === 'connect') {
+    return <Connect onConnect={() => setPage('home')} />;
+  }
+
+  if (page === 'collateral') {
+    return (
+      <Collateral
+        onTransaction={(value, action) =>
+          alert(`VALUE IS: ${value}\n ACTION IS: ${action}`)
+        }
+        onBack={() => setPage('home')}
+      />
+    );
+  }
+
+  if (page === 'stable') {
+    return (
+      <Stable
+        onTransaction={(value, action) =>
+          alert(`VALUE IS: ${value}\n ACTION IS: ${action}`)
+        }
+        onBack={() => setPage('home')}
+      />
+    );
+  }
+
+  const data = {
+    balance: balance ?? 0,
+    formattedAddress: formatAddress(address),
+    tonDeposited: tonDeposited,
+    tonPrice: tonPrice,
+    collateralVolume: collateralVolume,
+    stablesBorrowed: stablesBorrowed,
+    healthFactor: healthFactor,
+  };
 
   return (
-    <StyledApp>
-      <AppContainer>
-        <FlexBoxCol>
-          <FlexBoxRow>
-            <TonConnectButton />
-            <Button>
-              {network
-                ? network === CHAIN.MAINNET
-                  ? "mainnet"
-                  : "testnet"
-                : "N/A"}
-            </Button>
-          </FlexBoxRow>
-          <Counter />
-          <TransferTon />
-          <Jetton />
-        </FlexBoxCol>
-      </AppContainer>
-    </StyledApp>
+    <Home
+      data={data}
+      onCollateralClick={() => setPage('collateral')}
+      onStableClick={() => setPage('stable')}
+      Toaster={Toaster}
+    />
   );
 }
 
