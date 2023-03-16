@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { toFixed } from '../../utils';
 
 type HomeProps = {
   data: {
@@ -21,9 +22,11 @@ export default function Home({
   onStableClick,
   Toaster,
 }: HomeProps) {
+  const isHealthFactorLow = data.healthFactor < 1;
+
   return (
     <div className="grid h-screen place-content-center">
-      <div className="container w-screen max-w-xs rounded-xl p-7 shadow">
+      <div className="container w-screen max-w-xs rounded-2xl p-7 shadow">
         <div className="flex flex-col gap-3">
           <div className=" flex items-center gap-3">
             <img src="/ton.svg" className="w-12"></img>
@@ -49,33 +52,35 @@ export default function Home({
                 <span className="font-medium"> ${data.collateralVolume}</span>
               </div>
             </div>
-            <div className="flex flex-col gap-1 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-5">
+            <div className="fon flex flex-col gap-1 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 p-5">
               <div>
                 Stables borrowed:
                 <span className="font-medium"> ${data.stablesBorrowed}</span>
               </div>
-              <div>
-                Health factor:
-                <span
-                  className={`font-medium ${
-                    data.healthFactor < 1 && 'text-rose-500'
-                  }`}
-                >
-                  {` ${data.healthFactor}`}
+              <div
+                className={`${
+                  isHealthFactorLow && 'font-medium text-rose-500'
+                }`}
+              >
+                Health factor:{' '}
+                <span className="font-medium">
+                  {toFixed(data.healthFactor, 2)}
                 </span>
               </div>
             </div>
           </div>
           <div className="flex gap-2">
             <button
+              disabled={isHealthFactorLow}
               onClick={onCollateralClick}
-              className="w-full rounded-xl bg-gray-600 py-4 font-medium text-white hover:bg-gray-700"
+              className="w-full rounded-xl bg-gray-600 py-4 font-medium text-white hover:bg-gray-700 disabled:bg-gray-400"
             >
               Collateral
             </button>
             <button
+              disabled={isHealthFactorLow}
               onClick={onStableClick}
-              className="w-full rounded-xl bg-gray-600 py-4 font-medium text-white hover:bg-gray-700"
+              className="w-full rounded-xl bg-gray-600 py-4 font-medium text-white hover:bg-gray-700 disabled:bg-gray-400"
             >
               Stable
             </button>

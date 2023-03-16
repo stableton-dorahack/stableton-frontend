@@ -12,7 +12,7 @@ export default function Collateral({ onBack, onTransaction }: CollateralProps) {
 
   return (
     <div className="grid h-screen place-content-center">
-      <div className="container w-screen max-w-xs rounded-xl p-7 shadow">
+      <div className="container w-screen max-w-xs rounded-2xl p-7 shadow">
         <div className="flex flex-col gap-2">
           <button type="button" onClick={onBack} className="self-start">
             ← Go back
