@@ -1,52 +1,86 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { TonConnectButton, useTonAddress } from '@tonconnect/ui-react';
+import { ReactNode, useState } from 'react';
 import { Toaster } from 'react-hot-toast';
-import useUserPosition from './hooks/useUserPosition';
-import useGateKeeper from './hooks/useMockGateKeeper';
-import useBalance from './hooks/useBalance';
-import { formatAddress, toFixed } from './utils';
-import useMessage from './hooks/useMessage';
+import { TonConnectButton, useTonAddress } from '@tonconnect/ui-react';
+
 import { useTonConnect } from './hooks/useTonConnect';
-import Form from './components/ActionForm';
-import useUserPositionsManagerContract from './hooks/usePositionsManagerContract';
+import useBalance from './hooks/useBalance';
+import useMessage from './hooks/useMessage';
+import useGateKeeper from './hooks/useGateKeeper';
+import useUserStablecoinWallet from './hooks/useUserStablecoinWallet';
+import useUserPosition from './hooks/useUserPosition';
+
+import TransactionForm from './components/TransactionForm';
+import {
+  Action,
+  CollateralAction,
+  Message,
+  MessageType,
+  StableAction,
+} from './types';
+import { Address, toNano } from 'ton-core';
+import { toFixed } from './utils';
+import { useForm } from 'react-hook-form';
 
 function App() {
+  const { resetField } = useForm();
   const { connected } = useTonConnect();
   const address = useTonAddress();
   const balance = useBalance();
-  const { userPositionState } = useUserPosition();
-  const { debtRate, tonPrice } = useGateKeeper();
-  const [tonDeposited, setTonDeposited] = useState<number>(0);
-  const [stablesBorrowed, setStablesBorrowed] = useState<number>(0);
-  const collateralVolume = tonDeposited * tonPrice;
-  const healthFactor = collateralVolume / (stablesBorrowed * 1.5);
-  useMessage();
+  useMessage(address);
 
-  const { userPositionsContractAddress } =
-    useUserPositionsManagerContract(address);
+  const { debtRate, tonPrice, send } = useGateKeeper();
+  const { collateral, debt } = useUserPosition(address);
+  const { stableBalance } = useUserStablecoinWallet(address);
+  const collateralVolume = collateral && tonPrice ? collateral * tonPrice : 0;
 
-  console.log('userPositionsContractAddress', userPositionsContractAddress);
+  const stablesBorrowed =
+    debt && debtRate ? debt * debtRate.debtAccumulatedRate : 0;
 
-  useEffect(() => {
-    if (!userPositionState) return;
-    const { collateral, debt } = userPositionState;
-    const { debtAccumulatedRate } = debtRate;
-    setTonDeposited(collateral);
-    setStablesBorrowed(debt * debtAccumulatedRate);
-  }, [userPositionState, debtRate]);
+  const liquidationRation = 1.2;
+  const LTV = 1.5;
 
-  const data = {
-    balance: balance,
-    stableBalance: toFixed(balance * Math.random(), 2),
-    formattedAddress: formatAddress(address),
-    tonDeposited: tonDeposited,
-    tonPrice: tonPrice,
-    collateralVolume: collateralVolume,
-    stablesBorrowed: stablesBorrowed,
-    healthFactor: healthFactor,
+  const rawHealthFactor =
+    collateralVolume / (stablesBorrowed * liquidationRation);
+
+  const healthFactor =
+    !isNaN(rawHealthFactor) && isFinite(rawHealthFactor) ? rawHealthFactor : 0;
+
+  const isHealthFactorLow = healthFactor < 1 && healthFactor !== 0;
+
+  const maxWithdraw = collateralVolume - stablesBorrowed * LTV;
+  const maxBorrow = collateralVolume / LTV - stablesBorrowed;
+
+  const isAvailable = (action: Action) => {
+    if (!connected || isHealthFactorLow) return false;
   };
 
-  const isHealthFactorLow = data.healthFactor < 1;
+  const [activeCollateralAction, setActiveCollateralAction] =
+    useState<CollateralAction>('deposit');
+
+  const [activeStableAction, setActiveStableAction] =
+    useState<StableAction>('borrow');
+
+  const handleSubmit = (action: Action, amount: number) => {
+    const type = {
+      deposit: 'DepositCollateralUserMessage',
+      withdraw: 'WithdrawCollateralUserMessage',
+      borrow: 'WithdrawStablecoinUserMessage',
+      repay: 'RepayStablecoinUserMessage',
+    };
+
+    const value =
+      type[action] === type.deposit
+        ? toNano((1 + amount).toString())
+        : toNano('0.3');
+
+    const message = {
+      $$type: type[action] as MessageType,
+      user: Address.parse(address),
+      amount: toNano(amount.toString()),
+    };
+
+    send(value, message);
+  };
 
   return (
     <div className="grid h-screen place-content-center bg-white">
@@ -57,8 +91,8 @@ function App() {
             <div className="flex items-center gap-3">
               <img src="/ton.svg" className="w-[54px]"></img>
               <div className="">
-                <div className="text-xl font-semibold">{data.balance} TON</div>
-                <div className="">{data.stableBalance} StableTON</div>
+                <div className="text-xl font-semibold">{balance} TON</div>
+                <div>{stableBalance} StableTON</div>
               </div>
             </div>
             <TonConnectButton />
@@ -66,35 +100,91 @@ function App() {
           <div className="mt-2 flex gap-2">
             <div className="flex flex-1 flex-col gap-2">
               <div className="flex flex-col gap-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 p-5">
-                <CardValue label="TON Price">{data.tonPrice} $</CardValue>
-                <CardValue label="TON Deposited">
-                  {data.tonDeposited} TON
-                </CardValue>
+                <CardValue label="TON Price">{tonPrice} $</CardValue>
+                <CardValue label="TON Deposited">{collateral} TON</CardValue>
                 <CardValue label="Collateral volume">
-                  {data.collateralVolume} TON
+                  {collateralVolume} $
                 </CardValue>
               </div>
             </div>
             <div className="flex flex-1 flex-col gap-2">
               <div className="flex flex-1 flex-col gap-2 rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 p-5">
                 <CardValue label="Stable borrowed">
-                  {data.stablesBorrowed} StableTON
+                  {stablesBorrowed} $
                 </CardValue>
                 <CardValue label="Health factor" isDanger={isHealthFactorLow}>
-                  {toFixed(data.healthFactor, 2).toString()}
+                  {toFixed(healthFactor, 2).toString()}
                 </CardValue>
               </div>
             </div>
           </div>
           <div className="flex gap-2">
-            <Form className="flex-1" actions={['deposit', 'withdraw']} />
-            <Form className="flex-1" actions={['borrow', 'repay']} />
+            <div className="flex flex-col gap-2">
+              <div className="flex rounded-xl bg-slate-100 p-1">
+                <TabButton
+                  action="deposit"
+                  onClick={() => setActiveCollateralAction('deposit')}
+                  isActive={activeCollateralAction === 'deposit'}
+                />
+                <TabButton
+                  action="withdraw"
+                  onClick={() => setActiveCollateralAction('withdraw')}
+                  isActive={activeCollateralAction === 'withdraw'}
+                />
+              </div>
+              <TransactionForm
+                action={activeCollateralAction}
+                onSubmit={handleSubmit}
+                disabled={!isAvailable(activeCollateralAction)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <div className="flex rounded-xl bg-slate-100 p-1">
+                <TabButton
+                  action="borrow"
+                  onClick={() => setActiveStableAction('borrow')}
+                  isActive={activeStableAction === 'borrow'}
+                />
+                <TabButton
+                  action="repay"
+                  onClick={() => setActiveStableAction('repay')}
+                  isActive={activeStableAction === 'repay'}
+                />
+              </div>
+              <TransactionForm
+                action={activeStableAction}
+                onSubmit={handleSubmit}
+                disabled={!isAvailable(activeStableAction)}
+              />
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 }
+
+type TabButtonProps = {
+  action: Action;
+  onClick: () => void;
+  isActive: boolean;
+};
+
+const TabButton = ({ action, onClick, isActive }: TabButtonProps) => {
+  const button =
+    'w-full font-medium rounded-lg py-2 text-slate-600 first-letter:uppercase';
+  const activeButton = `${button} bg-white font-semibold cursor-default`;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={isActive ? activeButton : button}
+    >
+      {action}
+    </button>
+  );
+};
 
 type CardValueProps = {
   label: string;

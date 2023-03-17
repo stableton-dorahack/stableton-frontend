@@ -1,43 +1,72 @@
 import { useQuery } from '@tanstack/react-query';
-import { fromNano } from '../utils';
+import { useAsyncInitialize } from './useAsyncInitialize';
+import { PositionsManagerContract } from '../contracts/PositionsManagerContract';
+import { UserPositionContract } from '../contracts/UserPositionContract';
+import { useTonClient } from './useTonClient';
+import { Address, OpenedContract, fromNano } from 'ton-core';
 
-const useUserPosition = () => {
-  const userPosition = {
-    getPositionState: async () => {
-      return { collateral: 2_400_000_000n, debt: 20_000_000_000n };
+const useUserPositionContract = (userAddress: string) => {
+  const { client } = useTonClient();
+
+  const positionsManagerContract = useAsyncInitialize(async () => {
+    if (!client) return;
+    const contractAddress = 'EQDGTxG-VaiAq5YGHuf8nASYU8_AiOm4k6Wvv23YxzrGn--k';
+    const contract = PositionsManagerContract.fromAddress(
+      Address.parse(contractAddress)
+    );
+    return client.open(contract) as OpenedContract<PositionsManagerContract>;
+  }, [client]);
+
+  const { data: userPositionContractAddress } = useQuery(
+    ['positionsManager'],
+    async () => {
+      if (!positionsManagerContract) return null;
+
+      const userPositionContractAddress =
+        await positionsManagerContract.getUserPositionAddress(
+          Address.parse(userAddress)
+        );
+
+      return userPositionContractAddress;
     },
-    getMessage: async () => {
-      return {
-        timestamp: 17214000029n,
-        value: 'Test message from contract',
-      };
-    },
-  };
+    { enabled: !!userAddress && !!positionsManagerContract }
+  );
+
+  const userPositionContract = useAsyncInitialize(async () => {
+    if (!client || !userPositionContractAddress) return null;
+    const contract = UserPositionContract.fromAddress(
+      userPositionContractAddress
+    );
+
+    return client.open(contract) as OpenedContract<UserPositionContract>;
+  }, [client, userPositionContractAddress]);
 
   const { data } = useQuery(
     ['userPosition'],
     async () => {
-      const userPositionState = await userPosition.getPositionState();
-      const message = await userPosition.getMessage();
-      return { userPositionState, message };
+      try {
+        if (!userPositionContract) return null;
+        const userPosition = await userPositionContract.getPositionState();
+        const message = await userPositionContract.getMessage();
+        return { ...userPosition, message };
+      } catch (e) {
+        // console.warn('User position contract is not deployed yet');
+        return null;
+      }
     },
     { refetchInterval: 3000 }
   );
 
-  const userPositionState = {
-    collateral: fromNano(data?.userPositionState?.collateral ?? 0n),
-    debt: fromNano(data?.userPositionState?.debt ?? 0n),
-  };
-
-  const message = {
-    timestamp: Number(data?.message?.timestamp ?? 0n),
-    value: data?.message?.value ?? '',
-  };
-
   return {
-    userPositionState: data?.userPositionState ? userPositionState : null,
-    message: data?.message ? message : null,
+    collateral: data ? +fromNano(data.collateral) : 0,
+    debt: data ? +fromNano(data.debt) : 0,
+    message: data
+      ? {
+          value: data.message.message,
+          timestamp: Number(data.message.timestamp),
+        }
+      : null,
   };
 };
 
-export default useUserPosition;
+export default useUserPositionContract;

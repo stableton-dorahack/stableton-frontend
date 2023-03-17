@@ -3,8 +3,8 @@ import toast from 'react-hot-toast';
 
 import useUserPosition from './useUserPosition';
 
-const useMessage = () => {
-  const { message } = useUserPosition();
+const useMessage = (userAddress: string) => {
+  const { message } = useUserPosition(userAddress);
   const timespampRef = useRef<number | null>(null);
 
   useEffect(() => {

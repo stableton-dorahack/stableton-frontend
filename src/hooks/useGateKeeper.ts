@@ -1,17 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
-import { fromNano, toNumber } from '../utils';
 import { useAsyncInitialize } from './useAsyncInitialize';
 import { GateKeeperContract } from '../contracts/GateKeeperContract';
 import { useTonClient } from './useTonClient';
-import { Address, OpenedContract } from 'ton-core';
+import { Address, OpenedContract, fromNano, toNano } from 'ton-core';
+import { useTonConnect } from './useTonConnect';
+import { Message } from '../types';
 
 const useGateKeeperContract = () => {
   const { client } = useTonClient();
+  const { sender } = useTonConnect();
 
   const gateKeeperContract = useAsyncInitialize(async () => {
     if (!client) return;
     const contract = GateKeeperContract.fromAddress(
-      Address.parse('address will be there')
+      Address.parse('EQArRm3cFDU5K4XiU067vMKEleHF6mHhfEI8uk8dHlCiR1GY')
     );
     return client.open(contract) as OpenedContract<GateKeeperContract>;
   }, [client]);
@@ -29,9 +31,15 @@ const useGateKeeperContract = () => {
 
   return {
     debtRate: {
-      debtAccumulatedRate: toNumber(data?.debtRate?.debtAccumulatedRate),
+      debtAccumulatedRate: data
+        ? +fromNano(data.debtRate.debtAccumulatedRate)
+        : 0,
     },
-    tonPrice: toNumber(data?.debtRate?.debtAccumulatedRate),
+    tonPrice: data ? +fromNano(data.tonPrice) : 0,
+    send: (value: bigint, message: Message) => {
+      if (!gateKeeperContract) return;
+      return gateKeeperContract.send(sender, { value }, message);
+    },
   };
 };
 
