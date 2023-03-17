@@ -7,7 +7,7 @@ type StableProps = {
 
 export default function Stable({ onBack, onTransaction }: StableProps) {
   const [active, setActive] = useState<'borrow' | 'repay'>('borrow');
-  const button = 'w-full rounded-lg py-2 font-medium text-gray-600';
+  const button = 'w-full rounded-lg py-2 font-medium text-slate-600';
   const activeButton = `${button} bg-white`;
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -18,7 +18,7 @@ export default function Stable({ onBack, onTransaction }: StableProps) {
           <button type="button" onClick={onBack} className="self-start">
             ← Go back
           </button>
-          <div className="flex rounded-xl bg-gray-200 p-1">
+          <div className="flex rounded-xl bg-slate-200 p-1">
             <button
               type="button"
               onClick={() => active !== 'borrow' && setActive('borrow')}
@@ -36,14 +36,14 @@ export default function Stable({ onBack, onTransaction }: StableProps) {
           </div>
           <input
             ref={inputRef}
-            className="w-full rounded-xl border border-gray-200 py-6 px-4 text-2xl font-medium shadow-sm outline-none focus:border-gray-400"
+            className="w-full rounded-xl border border-slate-200 py-6 px-4 text-2xl font-medium shadow-sm outline-none focus:border-slate-400"
             placeholder="0.0"
           />
           <button
             onClick={() =>
               inputRef.current && onTransaction(+inputRef.current.value, active)
             }
-            className="w-full rounded-xl bg-gray-600 py-3 font-medium text-white"
+            className="w-full rounded-xl bg-slate-600 py-3 font-medium text-white"
           >
             {active === 'borrow' ? 'Borrow' : 'Repay'}
           </button>

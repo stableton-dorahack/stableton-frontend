@@ -9,11 +9,11 @@ const useBalance = () => {
   const address = useTonAddress();
 
   return useAsyncInitialize(() => {
-    if (!client) return new Promise((resolve) => resolve(null));
+    if (!client) return new Promise((resolve) => resolve(0));
     return client
       ?.getBalance(Address.parse(address))
       .then((balance) => fromNano(balance));
-  }, [client]) as number | null;
+  }, [client]) as number;
 };
 
 export default useBalance;

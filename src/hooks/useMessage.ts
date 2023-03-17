@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 
 import useUserPosition from './useUserPosition';
 
-const useMessage = (toast: { success: (message: string) => void }) => {
+const useMessage = () => {
   const { message } = useUserPosition();
   const timespampRef = useRef<number | null>(null);
 
@@ -16,7 +17,7 @@ const useMessage = (toast: { success: (message: string) => void }) => {
       return;
     }
 
-    toast.success(message.value);
+    toast.success(message.value, { duration: 5000 });
     timespampRef.current = message.timestamp;
   }, [message]);
 };

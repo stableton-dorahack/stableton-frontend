@@ -4,11 +4,11 @@ import { fromNano } from '../utils';
 const useUserPosition = () => {
   const userPosition = {
     getPositionState: async () => {
-      return { collateral: 2_400_000_000n, debt: 2_000_000_000n };
+      return { collateral: 2_400_000_000n, debt: 20_000_000_000n };
     },
     getMessage: async () => {
       return {
-        timestamp: 1721400009n,
+        timestamp: 17214000029n,
         value: 'Test message from contract',
       };
     },
@@ -30,7 +30,7 @@ const useUserPosition = () => {
   };
 
   const message = {
-    timestamp: fromNano(data?.message?.timestamp ?? 0n),
+    timestamp: Number(data?.message?.timestamp ?? 0n),
     value: data?.message?.value ?? '',
   };
 
