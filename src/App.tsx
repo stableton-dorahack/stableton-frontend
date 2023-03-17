@@ -52,6 +52,23 @@ function App() {
 
   const isAvailable = (action: Action) => {
     if (!connected || isHealthFactorLow) return false;
+
+    switch (action) {
+      case 'deposit':
+        return balance && balance > 0;
+
+      case 'withdraw':
+        return collateral && collateral > 0;
+
+      case 'borrow':
+        return collateral && collateral > 0;
+
+      case 'repay':
+        return stableBalance && stableBalance > 0;
+
+      default:
+        return false;
+    }
   };
 
   const [activeCollateralAction, setActiveCollateralAction] =
